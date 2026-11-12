@@ -1,0 +1,11 @@
+import React,{useEffect,useState} from "react";
+import {Download,Filter} from "lucide-react";
+import {djangoApi,errorMessage,rows} from "../api";
+import {PageHeading,Alert,Empty,Status} from "../components/UI";
+export default function Transactions(){
+ const [items,setItems]=useState([]),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState(""),[error,setError]=useState("");
+ useEffect(()=>{djangoApi.get("/api/transactions/").then(r=>setItems(rows(r.data))).catch(e=>setError(errorMessage(e)));},[]);
+ const filtered=items.filter(t=>(!status||String(t.status).toUpperCase()===status)&&(!from||String(t.created_at||"").slice(0,10)>=from)&&(!to||String(t.created_at||"").slice(0,10)<=to));
+ const exportCsv=async()=>{try{const r=await djangoApi.get("/api/admin/transactions/export/",{responseType:"blob"});const url=URL.createObjectURL(r.data);const a=document.createElement("a");a.href=url;a.download="transactions.csv";a.click();URL.revokeObjectURL(url);}catch(e){setError(errorMessage(e));}};
+ return <><PageHeading eyebrow="ACTIVITY" title="Transactions" subtitle="Review payment history and filter results." action={<button className="secondary" onClick={exportCsv}><Download size={17}/> Export CSV</button>}/><Alert>{error}</Alert><div className="panel"><div className="filters"><b className="filter-title"><Filter size={16}/> Filters</b><label>Status<select value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option><option>SUCCESS</option><option>FAILED</option><option>PENDING</option></select></label><label>From<input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label><label>To<input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label></div>{filtered.length?<div className="table-wrap"><table><thead><tr><th>PAYMENT ID</th><th>AMOUNT</th><th>CARD</th><th>STATUS</th><th>DATE</th></tr></thead><tbody>{filtered.map((t,i)=><tr key={t.id||i}><td className="mono">{t.payment_id||t.id}</td><td>₹{t.amount}</td><td>•••• {t.card_last4||"----"}</td><td><Status value={t.status}/></td><td>{t.created_at?new Date(t.created_at).toLocaleString():"—"}</td></tr>)}</tbody></table></div>:<Empty text="No matching transactions found."/ >}</div></>;
+}
